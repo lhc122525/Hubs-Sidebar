@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hubs 面板</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body data-pos="top">
+  <header class="panel-header">
+    <div class="brand" title="收起边栏" role="button" aria-label="收起边栏">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <defs>
+          <linearGradient id="hubs-logo-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#6fd6ff" />
+            <stop offset="1" stop-color="#4a7dff" />
+          </linearGradient>
+        </defs>
+        <rect x="3.5" y="4.5" width="13" height="15" rx="2.6" fill="url(#hubs-logo-g)" />
+        <rect x="18.5" y="8.75" width="2.5" height="6.5" rx="1.3" fill="url(#hubs-logo-g)" opacity=".62" />
+      </svg>
+    </div>
+    <nav id="tabs" class="tabs" aria-label="应用切换"></nav>
+    <div class="actions">
+      <button id="btn-refresh" class="icon-btn" type="button" title="刷新当前应用">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 3v4.3h-4.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="btn-open" class="icon-btn" type="button" title="在新标签页打开">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 5l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button id="btn-manage" class="icon-btn" type="button" title="管理应用">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 12a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.6 7.6 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2 1.2L9.5 21h5l.4-2.6a7.6 7.6 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="views" class="views">
+    <div id="spinner" class="spinner" hidden><div class="ring"></div></div>
+    <div id="load-error" class="load-error" hidden>
+      <p id="load-error-title" class="load-error-title">网站未能加载</p>
+      <p class="load-error-desc">该网站可能主动禁止被嵌入分屏，或因第三方 Cookie 受限而一直加载。可以重试，或在新标签页打开。</p>
+      <div class="load-error-actions">
+        <button id="btn-retry" type="button">重试</button>
+        <button id="btn-error-popup" type="button">小窗打开</button>
+        <button id="btn-error-std" type="button">独立窗口</button>
+        <button id="btn-error-open" type="button">新标签页打开</button>
+      </div>
+    </div>
+    <div id="empty" class="empty" hidden>
+      <p>还没有应用</p>
+      <button id="btn-add-first" type="button">去添加</button>
+    </div>
+  </main>
+
+  <!-- Tab 右键菜单（关闭打开过的选项卡） -->
+  <div id="tab-menu" class="tab-menu" hidden>
+    <button id="tm-close" type="button">关闭</button>
+  </div>
+
+  <script src="../src/shared/defaults.js"></script>
+  <script src="../src/shared/storage.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

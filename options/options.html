@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hubs Sidebar · 应用管理</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+        <defs>
+          <linearGradient id="hubs-logo-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#6fd6ff" />
+            <stop offset="1" stop-color="#4a7dff" />
+          </linearGradient>
+        </defs>
+        <rect x="3.5" y="4.5" width="13" height="15" rx="2.6" fill="url(#hubs-logo-g)" />
+        <rect x="18.5" y="8.75" width="2.5" height="6.5" rx="1.3" fill="url(#hubs-logo-g)" opacity=".62" />
+      </svg>
+      <h1>Hubs Sidebar · 应用管理</h1>
+      <div class="header-actions">
+        <button id="btn-restore" class="ghost-btn" type="button">恢复内置预设</button>
+        <button id="btn-add" class="primary-btn" type="button">＋ 添加应用</button>
+      </div>
+    </header>
+
+    <p class="hint">
+      修改会实时同步到悬浮条与分屏面板；为每个应用域名生成 iframe 放行规则，删除应用时自动清理。
+    </p>
+
+    <!-- 面板偏好：头部吸附位置 -->
+    <section class="pref-card">
+      <div class="pref-row">
+        <span class="pref-label">分屏面板 · 头部吸附</span>
+        <div class="seg" id="seg-pos" role="group" aria-label="面板头部吸附位置">
+          <button type="button" class="seg-btn" data-pos="top">顶部</button>
+          <button type="button" class="seg-btn" data-pos="left">左侧</button>
+          <button type="button" class="seg-btn" data-pos="right">右侧</button>
+          <button type="button" class="seg-btn" data-pos="bottom">底部</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 是否展示快捷导航浮点 -->
+    <section class="pref-card">
+      <div class="pref-row">
+        <span class="pref-label">快捷导航浮点</span>
+        <label class="switch">
+          <input type="checkbox" id="chk-showbar" checked />
+          <span class="track" aria-hidden="true"></span>
+          <span class="switch-text">在页面上展示悬浮条与折叠圆点</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- 编辑表单（新增/修改共用，默认隐藏） -->
+    <section id="form-card" class="form-card" hidden>
+      <h2 id="form-title">添加应用</h2>
+      <form id="app-form" novalidate>
+        <input type="hidden" id="f-id" />
+        <div class="grid">
+          <label class="field">
+            <span>名称</span>
+            <input id="f-name" type="text" maxlength="20" placeholder="如：邮箱" required />
+          </label>
+          <label class="field">
+            <span>URL</span>
+            <input id="f-url" type="text" placeholder="如：outlook.office.com（自动补 https://）" required />
+          </label>
+          <label class="field">
+            <span>主题色（图标取不到时字母兜底用）</span>
+            <div class="color-row">
+              <input id="f-color" type="color" value="#0078d4" />
+              <div id="swatches" class="swatches"></div>
+            </div>
+          </label>
+        </div>
+        <div class="form-actions">
+          <span id="form-error" class="form-error" role="alert"></span>
+          <button type="button" id="btn-cancel" class="ghost-btn">取消</button>
+          <button type="submit" id="btn-save" class="primary-btn">保存</button>
+        </div>
+      </form>
+    </section>
+
+    <ul id="app-list" class="app-list"></ul>
+
+    <p id="empty-tip" class="empty-tip" hidden>暂无应用，点击右上角「添加应用」或「恢复内置预设」。</p>
+  </div>
+
+  <script src="../src/shared/defaults.js"></script>
+  <script src="../src/shared/storage.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

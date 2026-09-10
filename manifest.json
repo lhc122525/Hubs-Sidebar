@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Hubs Sidebar",
+  "version": "1.0.0",
+  "description": "复刻 Microsoft Edge 原生 Hubs Sidebar 体验：右缘悬浮快捷条 + 分屏面板，应用可自定义。",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel", "storage", "favicon", "declarativeNetRequestWithHostAccess"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/panel.html"
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "打开 Hubs 面板",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/shared/defaults.js", "src/shared/storage.js", "content/hubs-bar.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content/hubs-bar.css"],
+      "matches": ["http://*/*", "https://*/*"]
+    },
+    {
+      "resources": ["_favicon/*"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ]
+}
