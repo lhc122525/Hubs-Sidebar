@@ -18,6 +18,18 @@ const HubsStorage = (() => {
     return Math.min(max, Math.max(min, v));
   }
 
+  function normalizeZIndex(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return HUBS_DEFAULT_PREFS.barZIndex;
+    return clamp(Math.round(n), 1, 2147483647);
+  }
+
+  function normalizePrefs(prefs) {
+    const next = { ...HUBS_DEFAULT_PREFS, ...(prefs || {}) };
+    next.barZIndex = normalizeZIndex(next.barZIndex);
+    return next;
+  }
+
   /** 规范化 URL：补协议、只允许 http(s)，失败返回空串 */
   function normalizeUrl(url) {
     if (!url) return '';
@@ -56,7 +68,7 @@ const HubsStorage = (() => {
 
   async function getPrefs() {
     const data = await chrome.storage.sync.get(KEY_PREFS);
-    return { ...HUBS_DEFAULT_PREFS, ...(data[KEY_PREFS] || {}) };
+    return normalizePrefs(data[KEY_PREFS]);
   }
 
   /* ---------------- 写入 ---------------- */
@@ -101,7 +113,7 @@ const HubsStorage = (() => {
   }
 
   async function setPrefs(patch) {
-    const prefs = { ...(await getPrefs()), ...patch };
+    const prefs = normalizePrefs({ ...(await getPrefs()), ...patch });
     await chrome.storage.sync.set({ [KEY_PREFS]: prefs });
     return prefs;
   }
@@ -117,7 +129,7 @@ const HubsStorage = (() => {
       if (area !== 'sync') return;
       const out = {};
       if (changes[KEY_APPS]) out.apps = (changes[KEY_APPS].newValue || []).map(normalizeApp);
-      if (changes[KEY_PREFS]) out.prefs = { ...HUBS_DEFAULT_PREFS, ...(changes[KEY_PREFS].newValue || {}) };
+      if (changes[KEY_PREFS]) out.prefs = normalizePrefs(changes[KEY_PREFS].newValue);
       if (Object.keys(out).length) cb(out);
     });
   }

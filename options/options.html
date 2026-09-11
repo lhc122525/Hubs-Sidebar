@@ -55,14 +55,12 @@
       </div>
     </section>
 
-    <!-- hover 模式：移入圆点展开悬浮条，移出收起 -->
     <section class="pref-card">
       <div class="pref-row">
-        <span class="pref-label">悬浮条 Hover 展开</span>
-        <label class="switch">
-          <input type="checkbox" id="chk-hover" checked />
-          <span class="track" aria-hidden="true"></span>
-          <span class="switch-text">鼠标移入折叠圆点即展开快捷面板，移开后自动收起；点击展开的不收起</span>
+        <span class="pref-label">悬浮层级 z-index</span>
+        <label class="pref-input">
+          <input type="number" id="inp-zindex" min="1" max="2147483647" step="1" value="10" />
+          <span class="pref-note">默认 10，悬浮条 / 圆点 / 抽屉 / 菜单会一起联动</span>
         </label>
       </div>
     </section>
@@ -75,6 +73,18 @@
           <input type="checkbox" id="chk-expand" checked />
           <span class="track" aria-hidden="true"></span>
           <span class="switch-text">关闭后页面初始只显示折叠圆点，点击后才展开快捷面板</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- hover 模式：移入圆点展开悬浮条，移出收起 -->
+    <section class="pref-card">
+      <div class="pref-row">
+        <span class="pref-label">悬浮条 Hover 展开</span>
+        <label class="switch">
+          <input type="checkbox" id="chk-hover" checked />
+          <span class="track" aria-hidden="true"></span>
+          <span class="switch-text">鼠标移入折叠圆点即展开快捷面板，移开后自动收起；点击展开的不收起</span>
         </label>
       </div>
     </section>

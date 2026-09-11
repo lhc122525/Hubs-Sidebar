@@ -28,11 +28,18 @@ const els = {
   btnCancel: document.getElementById('btn-cancel'),
   segPos: document.getElementById('seg-pos'),
   chkShowBar: document.getElementById('chk-showbar'),
+  inpZIndex: document.getElementById('inp-zindex'),
   chkHover: document.getElementById('chk-hover'),
   chkExpand: document.getElementById('chk-expand'),
   chkDrawerNav: document.getElementById('chk-drawer-nav'),
   chkPanelNav: document.getElementById('chk-panel-nav'),
 };
+
+function normalizeZIndexInput(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return HUBS_DEFAULT_PREFS.barZIndex;
+  return HubsStorage.clamp(Math.round(num), 1, 2147483647);
+}
 
 /* ---------------- 列表渲染 ---------------- */
 
@@ -236,6 +243,12 @@ function renderShowBar(show) {
   els.chkShowBar.checked = show !== false; // 缺省视为开启
 }
 
+els.inpZIndex.addEventListener('change', () => {
+  const value = normalizeZIndexInput(els.inpZIndex.value);
+  els.inpZIndex.value = String(value);
+  HubsStorage.setPrefs({ barZIndex: value }).catch(() => {});
+});
+
 /* ---------------- 面板偏好：悬浮条交互 / 跳转方式 ---------------- */
 
 // hover 模式：移入折叠圆点展开悬浮条，移出自动收起（点击展开的固定不收起）
@@ -260,6 +273,7 @@ els.chkPanelNav.addEventListener('change', () => {
 
 function renderTogglePrefs(prefs) {
   if (!prefs) return;
+  els.inpZIndex.value = String(normalizeZIndexInput(prefs.barZIndex));
   els.chkHover.checked = prefs.hoverExpand !== false; // hover/默认展开/抽屉跳转缺省视为开启
   els.chkExpand.checked = prefs.barExpanded !== false;
   els.chkDrawerNav.checked = prefs.drawerInternalNav !== false;

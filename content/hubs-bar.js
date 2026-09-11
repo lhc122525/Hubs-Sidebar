@@ -229,6 +229,7 @@
     shadow.append(link, bar, dot, drawer, menu);
     (document.documentElement || document.body).appendChild(host);
 
+    applyLayerZIndex();
     renderBar();
     applyPosition();
 
@@ -241,6 +242,7 @@
       }
       if (changes.prefs) {
         prefs = { ...prefs, ...changes.prefs };
+        applyLayerZIndex();
         renderBar();
         applyPosition();
         if (!drawer.hidden) positionDrawer();
@@ -288,6 +290,15 @@
     const n = document.createElement(tag);
     if (className) n.className = className;
     return n;
+  }
+
+  function applyLayerZIndex() {
+    if (!host) return;
+    const base = HubsStorage.clamp(Number(prefs.barZIndex) || HUBS_DEFAULT_PREFS.barZIndex, 1, 2147483647);
+    host.style.setProperty('--hubs-bar-z', String(base));
+    host.style.setProperty('--hubs-dot-z', String(base));
+    host.style.setProperty('--hubs-drawer-z', String(Math.max(0, base - 1)));
+    host.style.setProperty('--hubs-menu-z', String(Math.min(2147483647, base + 1)));
   }
 
   function sep() {
