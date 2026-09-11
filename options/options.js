@@ -28,6 +28,10 @@ const els = {
   btnCancel: document.getElementById('btn-cancel'),
   segPos: document.getElementById('seg-pos'),
   chkShowBar: document.getElementById('chk-showbar'),
+  chkHover: document.getElementById('chk-hover'),
+  chkExpand: document.getElementById('chk-expand'),
+  chkDrawerNav: document.getElementById('chk-drawer-nav'),
+  chkPanelNav: document.getElementById('chk-panel-nav'),
 };
 
 /* ---------------- 列表渲染 ---------------- */
@@ -232,6 +236,36 @@ function renderShowBar(show) {
   els.chkShowBar.checked = show !== false; // 缺省视为开启
 }
 
+/* ---------------- 面板偏好：悬浮条交互 / 跳转方式 ---------------- */
+
+// hover 模式：移入折叠圆点展开悬浮条，移出自动收起（点击展开的固定不收起）
+els.chkHover.addEventListener('change', () => {
+  HubsStorage.setPrefs({ hoverExpand: els.chkHover.checked }).catch(() => {});
+});
+
+// 快捷面板默认展开：关闭后页面初始只显示折叠圆点
+els.chkExpand.addEventListener('change', () => {
+  HubsStorage.setPrefs({ barExpanded: els.chkExpand.checked }).catch(() => {});
+});
+
+// 抽屉跳转内部打开：抽屉内新开链接原地加载，不另开标签页
+els.chkDrawerNav.addEventListener('change', () => {
+  HubsStorage.setPrefs({ drawerInternalNav: els.chkDrawerNav.checked }).catch(() => {});
+});
+
+// 边栏跳转内部打开：分屏面板内新开链接在面板 iframe 内原地打开
+els.chkPanelNav.addEventListener('change', () => {
+  HubsStorage.setPrefs({ panelInternalNav: els.chkPanelNav.checked }).catch(() => {});
+});
+
+function renderTogglePrefs(prefs) {
+  if (!prefs) return;
+  els.chkHover.checked = prefs.hoverExpand !== false; // hover/默认展开/抽屉跳转缺省视为开启
+  els.chkExpand.checked = prefs.barExpanded !== false;
+  els.chkDrawerNav.checked = prefs.drawerInternalNav !== false;
+  els.chkPanelNav.checked = prefs.panelInternalNav === true; // 边栏跳转缺省关闭
+}
+
 /* ---------------- 启动 / 订阅 ---------------- */
 
 (async () => {
@@ -240,6 +274,7 @@ function renderShowBar(show) {
   const prefs = await HubsStorage.getPrefs();
   renderSegPos(prefs.headerPosition);
   renderShowBar(prefs.showBar);
+  renderTogglePrefs(prefs);
 })();
 
 HubsStorage.subscribe((changes) => {
@@ -250,5 +285,6 @@ HubsStorage.subscribe((changes) => {
   if (changes.prefs) {
     renderSegPos(changes.prefs.headerPosition);
     renderShowBar(changes.prefs.showBar);
+    renderTogglePrefs(changes.prefs);
   }
 });

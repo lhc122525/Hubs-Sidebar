@@ -224,6 +224,20 @@ body[data-pos='right'] .tab-label {
   display: none;
 }
 
+/* 前进/后退：仅左右吸附（竖排头部）且「边栏跳转内部打开」开启时展示，
+ * 否则站内链接都外开新标签，iframe 无页面历史可导航 */
+#btn-back,
+#btn-forward {
+  display: none;
+}
+
+body[data-pos='left'].nav-internal #btn-back,
+body[data-pos='left'].nav-internal #btn-forward,
+body[data-pos='right'].nav-internal #btn-back,
+body[data-pos='right'].nav-internal #btn-forward {
+  display: flex;
+}
+
 .actions {
   display: flex;
   align-items: center;

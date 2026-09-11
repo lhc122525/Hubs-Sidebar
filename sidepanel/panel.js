@@ -12,6 +12,8 @@ const els = {
   spinner: document.getElementById('spinner'),
   empty: document.getElementById('empty'),
   refresh: document.getElementById('btn-refresh'),
+  back: document.getElementById('btn-back'),
+  forward: document.getElementById('btn-forward'),
   open: document.getElementById('btn-open'),
   manage: document.getElementById('btn-manage'),
   addFirst: document.getElementById('btn-add-first'),
@@ -44,6 +46,11 @@ function isVerticalHeader() {
 /** 应用头部吸附位置偏好到布局 */
 function applyHeaderPos(pos) {
   document.body.dataset.pos = pos || 'top';
+}
+
+/** 「边栏跳转内部打开」开启时 body 加 nav-internal（前进/后退按钮展示条件之一） */
+function applyInternalNav(on) {
+  document.body.classList.toggle('nav-internal', on === true);
 }
 
 /* ---------------- 渲染 ---------------- */
@@ -333,6 +340,20 @@ function syncApps(nextApps) {
 
 /* ---------------- 工具栏动作 ---------------- */
 
+/** 后退/前进：当前应用 iframe 的页面历史导航。跨域 iframe 的 history
+ *  父级直接访问会抛 SecurityError，转发 __hubs_nav 给 frame-links.js
+ *  在 iframe 自己的世界里执行（与抽屉同通道）。 */
+function navActive(dir) {
+  const frame = frames.get(activeId);
+  if (!frame || frame.hidden) return;
+  try {
+    frame.contentWindow.postMessage({ __hubs_nav: dir }, '*');
+  } catch {}
+}
+
+els.back.addEventListener('click', () => navActive('back'));
+els.forward.addEventListener('click', () => navActive('forward'));
+
 els.refresh.addEventListener('click', () => {
   const frame = frames.get(activeId);
   if (!frame) return;
@@ -394,6 +415,27 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
+/* ---------------- 边栏跳转内部打开：iframe 新开链接原地加载 ---------------- */
+
+// 向 iframe 推送拦截开关（frame-links.js 收到 __hubs_frame_ok 后改写 _blank 为原地导航；
+// event.source 与 frame.contentWindow 引用比对是精确身份校验，页面第三方 iframe 不受影响）
+function notifyFrameMode(frame) {
+  try {
+    frame.contentWindow.postMessage({ __hubs_frame_ok: prefsCache.panelInternalNav === true }, '*');
+  } catch {}
+}
+
+// 抽屉同款探测应答：iframe 启动时主动来问，按当前偏好回复 true/false
+window.addEventListener('message', (e) => {
+  if (!e.data || e.data.__hubs_probe !== true) return;
+  for (const f of frames.values()) {
+    if (e.source === f.contentWindow) {
+      notifyFrameMode(f);
+      return;
+    }
+  }
+});
+
 /* ---------------- 启动 ---------------- */
 
 // 向 SW 汇报面板开关状态，供悬浮条 Logo 点击时 toggle 开/关
@@ -406,6 +448,7 @@ window.addEventListener('pagehide', () => {
   const [initialApps, prefs] = await Promise.all([HubsStorage.getApps(), HubsStorage.getPrefs()]);
   prefsCache = prefs;
   applyHeaderPos(prefs.headerPosition);
+  applyInternalNav(prefs.panelInternalNav);
   syncApps(initialApps);
   // 面板未就绪时 activate-app 消息会丢，靠 lastActiveApp 兜底
   const want = new URLSearchParams(location.search).get('app');
@@ -417,5 +460,7 @@ HubsStorage.subscribe((changes) => {
   if (changes.prefs) {
     prefsCache = changes.prefs;
     applyHeaderPos(changes.prefs.headerPosition);
+    applyInternalNav(changes.prefs.panelInternalNav);
+    for (const f of frames.values()) notifyFrameMode(f); // 「边栏跳转内部打开」切换实时推送
   }
 });

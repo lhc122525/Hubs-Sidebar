@@ -35,6 +35,12 @@
   const MINUS_SVG =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 
+  const BACK_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  const FWD_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
   const DRAWER_SVG =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M15.5 4.8v14.4" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>';
 
@@ -47,6 +53,8 @@
   let apps = [];
   let prefs = { ...HUBS_DEFAULT_PREFS };
   let collapsed = false; // 折叠态只作用于当前页面（内存状态，不进 storage，不同步其他窗口）
+  let hoverActive = false; // 当前展开由 hover 触发（移出悬浮条自动收起；点击展开的固定）
+  let hoverTimer = null; // hover 收起延迟句柄，期间移回悬浮条则取消
   let dragging = null;
   let dragDistance = 0; // 最近一次拖拽的位移，用于区分「拖拽」与「点击」（圆点/手柄共用）
   let lastDrawerAppId = null; // 上次抽屉打开的应用，悬浮条按钮一键恢复
@@ -69,6 +77,7 @@
     } catch {} // SW 未就绪时按正常窗口处理
 
     [apps, prefs] = await Promise.all([HubsStorage.getApps(), HubsStorage.getPrefs()]);
+    collapsed = prefs.barExpanded === false; // 管理页关闭「默认展开」→ 初始只显示折叠圆点
 
     host = document.createElement('div');
     host.id = 'hubs-bar-root';
@@ -92,10 +101,34 @@
         dragDistance = 0; // 拖拽结束后的 click，不算点击
         return;
       }
+      hoverActive = false; // 点击展开 = 固定，移出不再自动收起
       collapsed = false;
       applyPosition();
     });
     bindDrag(dot, dot);
+
+    // hover 模式：移入圆点临时展开，移出悬浮条延迟收起；点击展开的不受影响
+    dot.addEventListener('mouseenter', () => {
+      if (prefs.hoverExpand === false || !collapsed) return;
+      hoverActive = true;
+      collapsed = false;
+      applyPosition();
+    });
+    bar.addEventListener('mouseenter', () => {
+      if (hoverTimer) {
+        clearTimeout(hoverTimer);
+        hoverTimer = null;
+      }
+    });
+    bar.addEventListener('mouseleave', () => {
+      if (!hoverActive || hoverTimer) return;
+      hoverTimer = setTimeout(() => {
+        hoverTimer = null;
+        hoverActive = false;
+        collapsed = true;
+        applyPosition();
+      }, 250);
+    });
 
     drawer = document.createElement('div');
     drawer.className = 'hubs-drawer';
@@ -103,6 +136,22 @@
 
     drawerTitle = document.createElement('span');
     drawerTitle.className = 'hubs-drawer-title';
+
+    // 后退/前进：抽屉内页面历史导航（目标 iframe 跨域，history 不可直接访问，
+    // 经 frame-links.js 通道在 iframe 内部执行）
+    const backBtn = document.createElement('button');
+    backBtn.className = 'hubs-drawer-nav';
+    backBtn.type = 'button';
+    backBtn.title = '后退';
+    backBtn.innerHTML = BACK_SVG;
+    backBtn.addEventListener('click', () => navDrawer('back'));
+
+    const fwdBtn = document.createElement('button');
+    fwdBtn.className = 'hubs-drawer-nav';
+    fwdBtn.type = 'button';
+    fwdBtn.title = '前进';
+    fwdBtn.innerHTML = FWD_SVG;
+    fwdBtn.addEventListener('click', () => navDrawer('forward'));
 
     // 收起：仅隐藏抽屉，iframe 状态保留，悬浮条「抽屉」按钮可随时恢复
     const hideBtn = document.createElement('button');
@@ -125,7 +174,7 @@
 
     const head = el('div', 'hubs-drawer-head');
     head.title = '拖拽移动抽屉 / 双击恢复跟随悬浮条';
-    head.append(drawerTitle, hideBtn, closeBtn);
+    head.append(drawerTitle, backBtn, fwdBtn, hideBtn, closeBtn);
     drawer.append(head, drawerBody);
     bindDrawerDrag(head); // 拖标题栏自由定位；双击标题栏恢复跟随悬浮条
 
@@ -195,6 +244,12 @@
         renderBar();
         applyPosition();
         if (!drawer.hidden) positionDrawer();
+        // 「抽屉跳转内部打开」切换 → 推送到已存在的抽屉 iframe（探测早已停止，需主动告知）
+        for (const f of barFrames.values()) {
+          try {
+            f.contentWindow.postMessage({ __hubs_frame_ok: prefs.drawerInternalNav !== false }, '*');
+          } catch {}
+        }
       }
     });
 
@@ -204,6 +259,20 @@
       applyPosition(); // 视口变窄（H5/小窗）整体隐藏，恢复宽度后重新显示
     });
     window.addEventListener('keydown', onKeydown, true);
+
+    // 抽屉 iframe 内 frame-links.js 的探测应答：event.source 与 drawer.contentWindow
+    // 引用比对是精确身份校验——只有我们自己的抽屉 iframe 才会收到激活回执，
+    // 页面里其他第三方 iframe 探测后无回应，保持原样。
+    // 回执值跟随「抽屉跳转内部打开」偏好：true 拦截新窗口原地打开，false 放行
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data.__hubs_probe !== true) return;
+      for (const f of barFrames.values()) {
+        if (e.source === f.contentWindow) {
+          e.source.postMessage({ __hubs_frame_ok: prefs.drawerInternalNav !== false }, '*');
+          return;
+        }
+      }
+    });
     // 点击菜单/悬浮条之外的地方 → 关菜单（open shadow 可用 composedPath 拿到内部目标）
     window.addEventListener('click', (e) => {
       if (menu.hidden) return;
@@ -254,6 +323,7 @@
         dragDistance = 0; // 拖拽结束后的 click，不算点击
         return;
       }
+      hoverActive = false; // 收起后，下一次 hover 重新计时
       collapsed = true;
       applyPosition();
     });
@@ -415,6 +485,20 @@
     drawer.hidden = true;
   }
 
+  /**
+   * 抽屉内页面后退/前进。目标 iframe 几乎必然跨域，contentWindow.history
+   * 直接访问会抛 SecurityError，所以转发 __hubs_nav 给 frame-links.js
+   * 在 iframe 自己的世界里执行 history.back()/forward()。
+   */
+  function navDrawer(dir) {
+    if (!drawer || drawer.hidden || !lastDrawerAppId) return;
+    const frame = barFrames.get(lastDrawerAppId);
+    if (!frame || frame.hidden) return;
+    try {
+      frame.contentWindow.postMessage({ __hubs_nav: dir }, '*');
+    } catch {}
+  }
+
   /** 关闭：真实销毁——移除全部 iframe，清空记忆，下次打开重新加载 */
   function destroyDrawer() {
     if (!drawer) return;
@@ -564,7 +648,7 @@
     const topPct = HubsStorage.clamp(Number(prefs.topRatio) || 0.5, 0.02, 0.94) * 100;
     for (const n of [bar, dot]) {
       n.style.left = n.style.right = '';
-      n.style[side] = '10px';
+      n.style[side] = '3px';
       n.style.top = topPct + 'vh';
     }
   }

@@ -27,6 +27,10 @@ const HUBS_DEFAULT_PREFS = {
   drawerX: null, // 抽屉自由定位（拖标题栏后记录左上角坐标）；null = 跟随悬浮条定位
   drawerY: null,
   showBar: true, // 是否展示页面上的快捷导航浮点（关闭后悬浮条与折叠圆点都不注入显示）
+  hoverExpand: true, // hover 模式：移入折叠圆点展开悬浮条，移出自动收起（点击展开的固定不收起）
+  barExpanded: true, // 快捷面板默认展开（false = 页面初始只显示折叠圆点，点击才展开）
+  drawerInternalNav: true, // 抽屉内新开链接在抽屉 iframe 内原地打开（frame-links 拦截）
+  panelInternalNav: false, // 边栏（分屏面板）内新开链接在面板 iframe 内原地打开
 };
 
 /**

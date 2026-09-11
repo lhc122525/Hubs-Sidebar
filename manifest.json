@@ -33,6 +33,13 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": ["src/shared/defaults.js", "src/shared/storage.js", "content/hubs-bar.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/frame-links.js"],
+      "all_frames": true,
+      "world": "MAIN",
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [

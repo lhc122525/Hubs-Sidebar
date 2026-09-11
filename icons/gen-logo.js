@@ -1,13 +1,12 @@
 'use strict';
 /**
- * 扩展 Logo 生成器 —— 「展开 / 收起」隐喻：
- *   一块大的圆角面板（展开的分屏内容）+ 右缘一条细竖条（收起的悬浮条 / 拉手），
- *   中间留空隙，抽象「右缘悬浮条 → 拉开为面板」的核心交互。
- * 品牌渐变 #6fd6ff → #4a7dff（对角），面板全不透明，拉手条 0.62 透明度，
- * 背景透明（浅色 / 深色工具栏均清晰）。
- * 几何（24 单位网格）：面板 x3.5 y4.5 w13 h15 rx2.6；条 x18.5 y8.75 w2.5 h6.5 rx1.3。
- * 纯 node 光栅化（SDF 抗锯齿 + 3x3 超采样）+ 手写 PNG 编码（zlib IDAT），
- * 不依赖任何第三方库。用法：node icons/gen-logo.js
+ * 扩展 Logo 生成器 —— 「侧栏 + 内容线」隐喻（64 单位 viewBox，与指定 SVG 设计一致）：
+ *   左侧竖向胶囊侧栏（rx11，#4F9CF9→#7B61FF 渐变）内含白色标题条与三级透明度圆点，
+ *   右侧三行长短递减的渐变内容线（#4F9CF9→#8B5CF6），呼应「分屏面板 + 应用列表」。
+ * 渐变按 userSpaceOnUse 端点线性插值（超出端点截断 pad），
+ * 纯 node 光栅化（SDF 抗锯齿 + 3x3 超采样，画家算法 back→front 逐层合成）
+ * + 手写 PNG 编码（zlib IDAT），不依赖任何第三方库。
+ * 用法：node icons/gen-logo.js
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,45 +52,91 @@ function encodePNG(size, rgba) {
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
 }
 
+/* ---------------- 设计稿（64 单位用户坐标系） ---------------- */
+
+const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const WHITE = [255, 255, 255];
+
+// 线性渐变（userSpaceOnUse：端点 p0→p1，颜色 c0→c1，越界截断）
+const GR_SIDEBAR = { p0: [2, 2], p1: [24, 62], c0: hex('#4F9CF9'), c1: hex('#7B61FF') };
+const GR_LINE = { p0: [26, 2], p1: [62, 62], c0: hex('#4F9CF9'), c1: hex('#8B5CF6') };
+
+// 图层按 back → front 排列（画家算法，后画的叠在上面）
+const SHAPES = [
+  { kind: 'rect', x: 2, y: 2, w: 22, h: 60, r: 11, fill: GR_SIDEBAR, a: 1 }, // 侧栏
+  { kind: 'rect', x: 7, y: 8, w: 12, h: 3, r: 1.5, fill: WHITE, a: 0.95 }, // 标题条
+  { kind: 'circ', cx: 13, cy: 17, r: 3, fill: WHITE, a: 0.9 }, // 导航点 1
+  { kind: 'circ', cx: 13, cy: 32, r: 3, fill: WHITE, a: 0.75 }, // 导航点 2
+  { kind: 'circ', cx: 13, cy: 47, r: 3, fill: WHITE, a: 0.6 }, // 导航点 3
+  { kind: 'rect', x: 26, y: 14, w: 36, h: 6, r: 3, fill: GR_LINE, a: 1 }, // 内容线 1
+  { kind: 'rect', x: 26, y: 29, w: 28, h: 6, r: 3, fill: GR_LINE, a: 1 }, // 内容线 2
+  { kind: 'rect', x: 26, y: 44, w: 20, h: 6, r: 3, fill: GR_LINE, a: 1 }, // 内容线 3
+];
+
 /* ---------------- 光栅化 ---------------- */
 
-const C0 = [0x6f, 0xd6, 0xff]; // #6fd6ff
-const C1 = [0x4a, 0x7d, 0xff]; // #4a7dff
-
-// 面板（展开态，主体）+ 悬浮条（收起态拉手，次级）
-const SHAPES = [
-  { x: 3.5, y: 4.5, w: 13, h: 15, r: 2.6, a: 1 },
-  { x: 18.5, y: 8.75, w: 2.5, h: 6.5, r: 1.3, a: 0.62 },
-];
+const VB = 64; // viewBox 边长（用户单位）
 const SS = 3; // 每像素 3x3 超采样
 
-/** 圆角矩形 SDF（负值在内部） */
+/** 圆角矩形 SDF（负值在内部，用户单位） */
 function rrSDF(px, py, x0, y0, w, h, r) {
   const cx = Math.max(x0 + r, Math.min(px, x0 + w - r));
   const cy = Math.max(y0 + r, Math.min(py, y0 + h - r));
   return Math.hypot(px - cx, py - cy) - r;
 }
 
+function shapeSDF(s, ux, uy) {
+  if (s.kind === 'circ') return Math.hypot(ux - s.cx, uy - s.cy) - s.r;
+  return rrSDF(ux, uy, s.x, s.y, s.w, s.h, s.r);
+}
+
+/** 取填充色：固定色或按用户坐标求值的线性渐变 */
+function fillColor(f, ux, uy) {
+  if (Array.isArray(f)) return f;
+  const dx = f.p1[0] - f.p0[0];
+  const dy = f.p1[1] - f.p0[1];
+  const len2 = dx * dx + dy * dy;
+  let t = len2 > 0 ? ((ux - f.p0[0]) * dx + (uy - f.p0[1]) * dy) / len2 : 0;
+  t = Math.min(1, Math.max(0, t)); // pad 截断
+  return [
+    f.c0[0] + (f.c1[0] - f.c0[0]) * t,
+    f.c0[1] + (f.c1[1] - f.c0[1]) * t,
+    f.c0[2] + (f.c1[2] - f.c0[2]) * t,
+  ];
+}
+
 function render(size) {
-  const u = size / 24;
+  const u = size / VB;
   const rgba = Buffer.alloc(size * size * 4);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       let aAcc = 0, rAcc = 0, gAcc = 0, bAcc = 0;
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
-          const px = x + (sx + 0.5) / SS;
-          const py = y + (sy + 0.5) / SS;
+          const ux = (x + (sx + 0.5) / SS) / u;
+          const uy = (y + (sy + 0.5) / SS) / u;
+          // 画家算法逐层 over 合成（色为非预乘，a 为累计透明度）
+          let a = 0, r = 0, g = 0, b = 0;
           for (const s of SHAPES) {
-            const d = rrSDF(px, py, s.x * u, s.y * u, s.w * u, s.h * u, s.r * u);
-            const cov = Math.min(1, Math.max(0, 0.5 - d)); // SDF 反走样覆盖度
+            const d = shapeSDF(s, ux, uy);
+            const cov = Math.min(1, Math.max(0, 0.5 - d * u)); // SDF 转设备像素后反走样
             if (cov <= 0) continue;
-            const t = (px + py) / (2 * size); // 对角渐变（canvas 语义）
-            const w = cov * s.a;
-            aAcc += w;
-            rAcc += (C0[0] + (C1[0] - C0[0]) * t) * w;
-            gAcc += (C0[1] + (C1[1] - C0[1]) * t) * w;
-            bAcc += (C0[2] + (C1[2] - C0[2]) * t) * w;
+            const sa = cov * s.a;
+            const c = fillColor(s.fill, ux, uy);
+            const outA = sa + a * (1 - sa);
+            if (outA > 0) {
+              const k = a * (1 - sa);
+              r = (c[0] * sa + r * k) / outA;
+              g = (c[1] * sa + g * k) / outA;
+              b = (c[2] * sa + b * k) / outA;
+            }
+            a = outA;
+          }
+          aAcc += a;
+          if (a > 0) {
+            rAcc += r * a;
+            gAcc += g * a;
+            bAcc += b * a;
           }
         }
       }
@@ -121,17 +166,22 @@ for (const size of SIZES) {
   const sigOk = png.slice(0, 8).toString('hex') === '89504e470d0a1a0a';
   const dimsOk = png.readUInt32BE(16) === size && png.readUInt32BE(20) === size;
 
-  // 校验 2：像素语义（面板中心蓝且实、拉手条半透明、间隙透明）
+  // 校验 2：像素语义（取用户坐标所在像素）
   const px = (x, y) => Array.from(rgba.slice((y * size + x) * 4, (y * size + x) * 4 + 4));
-  const m = size / 24;
-  const c = px(Math.round(10 * m), Math.round(12 * m)); // 面板中心
-  const bar = px(Math.round(19.75 * m), Math.round(12 * m)); // 拉手条中心
-  const gap = px(Math.round(17 * m), Math.round(12 * m)); // 面板与条之间
-  const blueOk = c[2] > 200 && c[2] >= c[0]; // 蓝色占优
-  // 16px 等小尺寸下，间隙采样点的子采样会擦到相邻块边缘（AA），允许少量泄漏
-  const alphaOk = c[3] >= 250 && Math.abs(bar[3] - Math.round(0.62 * 255)) <= 14 && gap[3] <= 70;
+  const at = (ux, uy) => px(Math.min(size - 1, Math.floor(ux * (size / VB))), Math.min(size - 1, Math.floor(uy * (size / VB))));
+  const c = at(13, 25); // 侧栏中心（圆点之间）：蓝紫渐变、不透明
+  const line = at(44, 17); // 内容线 1 中心：蓝紫渐变
+  const head = at(13, 9.5); // 标题条：白色叠于侧栏（白 0.95 叠蓝渐变后蓝通道仍偏高，只比红通道）
+  const gap = at(25, 20); // 侧栏与内容线之间：透明
+  const corner = at(1, 1); // 画布左上角：透明
+  // 16px 下内容线仅 1.5 设备像素高，AA 使 alpha 封顶在 ~227，阈值放宽
+  const blueOk = c[2] > 200 && c[2] >= c[0] && line[2] > 180 && line[3] >= (size >= 32 ? 250 : 200);
+  // 侧栏与内容线间隙仅 2 用户单位，128px 以下会被 AA 封成接缝，小尺寸改查画布角落
+  const alphaOk = c[3] >= 250 && (size >= 128 ? gap[3] <= 60 : corner[3] <= 60);
+  // 小尺寸下标题条不足 2 像素高，仅 32px 起校验「白」
+  const whiteOk = size >= 32 ? head[0] > 200 : true;
   console.log(
-    `icon-${size}.png  ${png.length}B  sig:${sigOk} dims:${dimsOk} blue:${blueOk} alpha:${alphaOk}`
+    `icon-${size}.png  ${png.length}B  sig:${sigOk} dims:${dimsOk} blue:${blueOk} alpha:${alphaOk} white:${whiteOk}`
   );
 }
 console.log('done');

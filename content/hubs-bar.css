@@ -5,7 +5,7 @@
 
 .hubs-bar {
   position: fixed;
-  z-index: 2147483647;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -277,7 +277,9 @@
   white-space: nowrap;
 }
 
-.hubs-drawer-close {
+/* 头部小图标按钮（收起/关闭/前进/后退共用） */
+.hubs-drawer-close,
+.hubs-drawer-nav {
   flex: 0 0 auto;
   width: 28px;
   height: 28px;
@@ -293,12 +295,14 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.hubs-drawer-close:hover {
+.hubs-drawer-close:hover,
+.hubs-drawer-nav:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 
-.hubs-drawer-close svg {
+.hubs-drawer-close svg,
+.hubs-drawer-nav svg {
   width: 15px;
   height: 15px;
 }

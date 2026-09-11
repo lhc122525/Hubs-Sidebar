@@ -22,6 +22,12 @@
     </div>
     <nav id="tabs" class="tabs" aria-label="应用切换"></nav>
     <div class="actions">
+      <button id="btn-back" class="icon-btn" type="button" title="后退">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="btn-forward" class="icon-btn" type="button" title="前进">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <button id="btn-refresh" class="icon-btn" type="button" title="刷新当前应用">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 3v4.3h-4.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -41,9 +47,9 @@
       <p class="load-error-desc">该网站可能主动禁止被嵌入分屏，或因第三方 Cookie 受限而一直加载。可以重试，或在新标签页打开。</p>
       <div class="load-error-actions">
         <button id="btn-retry" type="button">重试</button>
-        <button id="btn-error-popup" type="button">小窗打开</button>
+        <button id="btn-error-popup" type="button">小窗</button>
         <button id="btn-error-std" type="button">独立窗口</button>
-        <button id="btn-error-open" type="button">新标签页打开</button>
+        <button id="btn-error-open" type="button">新标签页</button>
       </div>
     </div>
     <div id="empty" class="empty" hidden>
