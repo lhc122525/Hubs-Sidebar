@@ -148,7 +148,7 @@
   align-items: center;
   gap: 4px;
   /* 2px 上下缓冲（hover 放大不裁切）+ 6×32 + 5×4 = 214 */
-  max-height: 214px;
+  max-height: 40vh;
   padding: 2px 4px;
   /* 抵消 bar 左右 padding：滚动条落在 padding 上，hover 放大溢出也不被裁 */
   margin: 0 -4px;
@@ -541,4 +541,27 @@
   opacity: 0.45;
   cursor: default;
   filter: none;
+}
+
+/* ---------- 应用拖拽排序 ---------- */
+.hubs-app {
+  touch-action: none; /* 图标拖拽排序时抑制触摸滚动/手势 */
+}
+
+/* 被拖拽项：原件半透明占位，克隆幽灵跟手 */
+.hubs-app.drag-source {
+  opacity: 0.3;
+}
+
+/* 跟手幽灵：克隆自 .hubs-btn（36×32），放大 + 高亮发光 */
+.hubs-drag-ghost {
+  position: fixed;
+  z-index: var(--hubs-menu-z, 11);
+  pointer-events: none;
+  transform: scale(1.18);
+  background: rgba(255, 255, 255, 0.14);
+  cursor: grabbing;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.55),
+    0 0 16px rgba(110, 200, 255, 0.4);
 }

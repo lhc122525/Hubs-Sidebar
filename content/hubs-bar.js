@@ -417,7 +417,13 @@
       btn.type = 'button';
       btn.title = app.name;
       btn.appendChild(iconNode(app));
-      btn.addEventListener('click', () => openPanel(app.id));
+      btn.addEventListener('click', () => {
+        if (dragDistance > 4) {
+          dragDistance = 0; // 拖拽排序松手后的 click，不打开应用
+          return;
+        }
+        openPanel(app.id);
+      });
       // 右键菜单：边栏打开 / 小窗打开
       btn.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -427,6 +433,7 @@
       list.appendChild(btn);
     }
     bar.appendChild(list);
+    bindAppReorder(list); // 图标拖拽排序
 
     bar.appendChild(sep());
 
@@ -854,5 +861,92 @@
     };
     handle.addEventListener('pointerup', finish);
     handle.addEventListener('pointercancel', finish);
+  }
+
+  /**
+   * 应用图标拖拽排序：按下位移超 5px 启动，克隆幽灵跟手，
+   * 其余项按目标位平移让位（.hubs-btn 自带 transform 过渡 → 平滑动画），
+   * 松手保存新序（storage.onChanged → renderBar 重排，多窗口同步）。
+   */
+  function bindAppReorder(list) {
+    const PITCH = 36; // 按钮高 32 + 间隙 4
+    let drag = null;
+
+    const onMove = (e) => {
+      if (!drag) return;
+      if (!drag.started) {
+        if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 5) return;
+        drag.started = true;
+        const its = [...list.children];
+        drag.from = its.indexOf(drag.btn);
+        drag.to = drag.from;
+        // 各项布局中心（内容坐标）：拖拽期间布局不动、仅视觉平移，据此稳定换算目标位
+        const lr0 = list.getBoundingClientRect();
+        drag.centers = its.map((b) => {
+          const r = b.getBoundingClientRect();
+          return r.top + r.height / 2 - lr0.top + list.scrollTop;
+        });
+        // 幽灵跟手，原件半透明占位
+        drag.ghost = drag.btn.cloneNode(true);
+        drag.ghost.classList.remove('hubs-app', 'drag-source');
+        drag.ghost.classList.add('hubs-drag-ghost');
+        drag.ghost.setAttribute('aria-hidden', 'true');
+        shadow.appendChild(drag.ghost);
+        drag.btn.classList.add('drag-source');
+      }
+      // 指针贴近列表上下缘自动滚动
+      const lr = list.getBoundingClientRect();
+      if (e.clientY < lr.top + 28) list.scrollTop -= 10;
+      else if (e.clientY > lr.bottom - 28) list.scrollTop += 10;
+      // 幽灵中心贴指针（.hubs-btn 为 36×32）
+      drag.ghost.style.left = e.clientX - 18 + 'px';
+      drag.ghost.style.top = e.clientY - 16 + 'px';
+      // 目标插入位（移除原项后的序）= 指针下方其他项的个数
+      const py = e.clientY - lr.top + list.scrollTop;
+      let to = 0;
+      for (let i = 0; i < drag.centers.length; i++) {
+        if (i !== drag.from && py > drag.centers[i]) to++;
+      }
+      if (to === drag.to) return;
+      drag.to = to;
+      // 其余项平移让位：源位与目标位之间的整段挪一个身位
+      [...list.children].forEach((b, i) => {
+        if (i === drag.from) return;
+        let dy = 0;
+        if (drag.from < to && i > drag.from && i <= to) dy = -PITCH;
+        else if (drag.from > to && i >= to && i < drag.from) dy = PITCH;
+        b.style.transform = dy ? `translateY(${dy}px)` : '';
+      });
+    };
+
+    const onUp = (e) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      if (!d.started) return; // 未超过阈值：普通点击，交由 click 处理
+      dragDistance = Math.hypot(e.clientX - d.startX, e.clientY - d.startY); // 随后的 click 据此忽略
+      d.ghost.remove();
+      d.btn.classList.remove('drag-source');
+      for (const b of list.children) b.style.transform = '';
+      if (d.to !== d.from && d.btn.isConnected) {
+        const next = [...apps];
+        const [moved] = next.splice(d.from, 1);
+        next.splice(d.to, 0, moved);
+        HubsStorage.saveApps(next).catch(() => {}); // 保存新序，onChanged 广播刷新
+      }
+    };
+
+    list.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return; // 右键仍走 contextmenu 菜单
+      const btn = e.target.closest('.hubs-app');
+      if (!btn) return;
+      drag = { btn, started: false, startX: e.clientX, startY: e.clientY, from: -1, to: -1, centers: [], ghost: null };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    });
   }
 })();
