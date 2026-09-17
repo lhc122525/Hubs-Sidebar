@@ -47,8 +47,21 @@
   const GEAR_SVG =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6A3.4 3.4 0 1 0 12 15.4 3.4 3.4 0 0 0 12 8.6z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.2 12c0-.4 0-.8-.1-1.1l1.9-1.5-1.9-3.3-2.2.9a7.2 7.2 0 0 0-1.9-1.1L14.6 3.6h-5.2L9 5.9a7.2 7.2 0 0 0-1.9 1.1l-2.2-.9-1.9 3.3 1.9 1.5a6.8 6.8 0 0 0 0 2.2l-1.9 1.5 1.9 3.3 2.2-.9a7.2 7.2 0 0 0 1.9 1.1l.4 2.3h5.2l.4-2.3a7.2 7.2 0 0 0 1.9-1.1l2.2.9 1.9-3.3-1.9-1.5c.06-.36.1-.73.1-1.1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 
+  const PLUS_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+
+  /** 快捷收藏的主题色：按 URL 哈希从色板取，同一站点固定、不同站点彼此区分 */
+  const HUBS_ADD_COLORS = ['#0078d4', '#0f6cbd', '#2564cf', '#5b5fc7', '#7a3ba8', '#c2410c', '#0e7a5a', '#b3261e'];
+
+  function colorForUrl(url) {
+    let h = 0;
+    for (let i = 0; i < url.length; i++) h = (h * 31 + url.charCodeAt(i)) >>> 0;
+    return HUBS_ADD_COLORS[h % HUBS_ADD_COLORS.length];
+  }
+
   let host, shadow, bar, dot, drawer, drawerTitle, drawerBody;
   let menu, itemPanel, itemWindow, itemStd, itemDrawer;
+  let addMask, addNameInput, addUrlInput, addHintEl, addOkBtn; // 快捷收藏弹窗
   let menuAppId = null; // 右键菜单当前对应的应用
   let apps = [];
   let prefs = { ...HUBS_DEFAULT_PREFS };
@@ -226,7 +239,54 @@
       hideMenu();
       if (id) openInBar(id);
     });
-    shadow.append(link, bar, dot, drawer, menu);
+    // 快捷收藏弹窗：预填当前站点标题/网址，确认后加入应用列表
+    addMask = el('div', 'hubs-dialog-mask');
+    addMask.hidden = true;
+    const addForm = el('form', 'hubs-dialog');
+
+    const addHeading = el('div', 'hubs-dialog-heading');
+    addHeading.textContent = '收藏当前网站';
+
+    const nameField = el('label', 'hubs-dialog-field');
+    nameField.textContent = '标题';
+    addNameInput = el('input');
+    addNameInput.type = 'text';
+    addNameInput.placeholder = '站点标题';
+    addNameInput.maxLength = 40;
+    nameField.appendChild(addNameInput);
+
+    const urlField = el('label', 'hubs-dialog-field');
+    urlField.textContent = '网址';
+    addUrlInput = el('input');
+    addUrlInput.type = 'text';
+    addUrlInput.placeholder = 'https://…';
+    urlField.appendChild(addUrlInput);
+
+    addHintEl = el('div', 'hubs-dialog-hint');
+
+    const addActions = el('div', 'hubs-dialog-actions');
+    const cancelBtn = el('button', 'hubs-dialog-btn');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = '取消';
+    cancelBtn.addEventListener('click', hideAddDialog);
+    addOkBtn = el('button', 'hubs-dialog-btn primary');
+    addOkBtn.type = 'submit';
+    addOkBtn.textContent = '添加';
+    addActions.append(cancelBtn, addOkBtn);
+
+    addForm.append(addHeading, nameField, urlField, addHintEl, addActions);
+    addForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitAddApp();
+    });
+    addNameInput.addEventListener('input', validateAddDialog);
+    addUrlInput.addEventListener('input', validateAddDialog);
+    addMask.appendChild(addForm);
+    addMask.addEventListener('click', (e) => {
+      if (e.target === addMask) hideAddDialog(); // 点遮罩关闭
+    });
+
+    shadow.append(link, bar, dot, drawer, menu, addMask);
     (document.documentElement || document.body).appendChild(host);
 
     applyLayerZIndex();
@@ -387,6 +447,14 @@
       chrome.runtime.sendMessage({ type: 'open-options' }).catch(() => {});
     });
     bar.appendChild(settingsBtn);
+
+    // 快捷收藏：弹窗确认标题/网址，把当前网站加入应用列表
+    const addBtn = el('button', 'hubs-btn hubs-add');
+    addBtn.type = 'button';
+    addBtn.title = '收藏当前网站';
+    addBtn.innerHTML = PLUS_SVG;
+    addBtn.addEventListener('click', showAddDialog);
+    bar.appendChild(addBtn);
 
     // 底部折叠按钮：右侧朝右收、左侧朝左收（CSS 依 .side-left 翻转）
 
@@ -625,9 +693,60 @@
     menuAppId = null;
   }
 
+  /* ---------------- 快捷收藏弹窗 ---------------- */
+
+  /** 打开弹窗：预填当前站点标题与网址，聚焦全选标题便于直接改名 */
+  function showAddDialog() {
+    hideMenu();
+    addNameInput.value = (document.title || '').trim() || location.hostname;
+    addUrlInput.value = location.href;
+    validateAddDialog();
+    addMask.hidden = false;
+    requestAnimationFrame(() => {
+      addNameInput.focus();
+      addNameInput.select();
+    });
+  }
+
+  function hideAddDialog() {
+    if (!addMask || addMask.hidden) return;
+    addMask.hidden = true;
+  }
+
+  /** 校验：URL 可规范化且未收藏过；不合法/重复时禁用「添加」并提示 */
+  function validateAddDialog() {
+    const url = HubsStorage.normalizeUrl(addUrlInput.value);
+    const dup = !!url && apps.some((a) => a.url === url);
+    addUrlInput.classList.toggle('invalid', !url);
+    addHintEl.textContent = !url ? '网址无效，仅支持 http(s) 链接' : dup ? '该网站已在快捷方式中' : '';
+    addOkBtn.disabled = !url || dup;
+  }
+
+  async function submitAddApp() {
+    if (addOkBtn.disabled) return;
+    const url = HubsStorage.normalizeUrl(addUrlInput.value);
+    if (!url) return;
+    const name = addNameInput.value.trim() || new URL(url).hostname;
+    hideAddDialog();
+    try {
+      await HubsStorage.addApp({ name, url, color: colorForUrl(url) });
+      // 新增项在列表末尾：滚到底部让它立即可见（storage.onChanged → renderBar 之后）
+      requestAnimationFrame(() => {
+        const list = shadow.querySelector('.hubs-apps');
+        if (list) list.scrollTop = list.scrollHeight;
+      });
+    } catch {}
+  }
+
   /** ESC 关抽屉/菜单（capture 阶段，避免被页面拦截） */
   function onKeydown(e) {
     if (e.key !== 'Escape') return;
+    if (addMask && !addMask.hidden) {
+      e.stopPropagation();
+      e.preventDefault();
+      hideAddDialog();
+      return;
+    }
     if (menu && !menu.hidden) {
       e.stopPropagation();
       e.preventDefault();

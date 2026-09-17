@@ -274,7 +274,7 @@ els.chkPanelNav.addEventListener('change', () => {
 function renderTogglePrefs(prefs) {
   if (!prefs) return;
   els.inpZIndex.value = String(normalizeZIndexInput(prefs.barZIndex));
-  els.chkHover.checked = prefs.hoverExpand !== false; // hover/默认展开/抽屉跳转缺省视为开启
+  els.chkHover.checked = prefs.hoverExpand === true; // hover 展开缺省关闭
   els.chkExpand.checked = prefs.barExpanded !== false;
   els.chkDrawerNav.checked = prefs.drawerInternalNav !== false;
   els.chkPanelNav.checked = prefs.panelInternalNav === true; // 边栏跳转缺省关闭
